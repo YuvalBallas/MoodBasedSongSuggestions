@@ -1,0 +1,30 @@
+# Build artifacts
+*.obj
+*.exe
+*.dll
+*.lib
+*.pdb
+*.ilk
+*.tlog
+*.vcxproj.user
+*.vcxproj.filters
+*.sdf
+*.ipch
+*.log
+*.pch
+*.idb
+*.exp
+
+# Visual Studio directories
+.vs/
+bin/
+obj/
+Debug/
+Release/
+x64/
+
+# Other ignored files
+*.cache
+*.user
+*.tmp
+imgui.ini
