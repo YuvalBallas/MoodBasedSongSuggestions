@@ -33,7 +33,6 @@ std::string FAVORITES_FILE = "favorites.txt";  // File to store favorite songs
 std::atomic<int> selectedMood = -1;  // atomic to prevent race conditions
 std::vector<std::pair<std::string, std::string>> songList;  // Stores (Song Name, Artist)
 std::vector<std::pair<std::string, std::string>> favoriteSongs; // Stores favorites
-//std::map<std::string, std::string> albumCovers;
 
 // Constants for API
 const std::string API_KEY = "eb06d13a5235407d221efb58f6de9361";  
@@ -51,33 +50,12 @@ std::vector<std::string> moods = { "Happy", "Sad", "Relaxed", "Energetic", "Chil
 // Function Declarations
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// Load album cover image as OpenGL texture
-//GLuint LoadTextureFromURL(const std::string& imageURL) {
- /*   int width, height, channels;
-    unsigned char* data = stbi_load(imageURL.c_str(), &width, &height, &channels, 4);
-    if (!data) {
-        std::cerr << "Failed to load image: " << imageURL << std::endl;
-        return 0;
-    }
-
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    stbi_image_free(data);
-    return texture; */
-   // return 0;
-//}
 
 // Function to Fetch Songs from Last.fm API in a separate thread
 void fetchSongsByMood(const std::string& mood) {
     std::thread fetchThread([mood]() {
         std::lock_guard<std::mutex> lock(dataMutex);  // Prevents multiple threads from modifying data at the same time
         songList.clear();
-        //albumCovers.clear();
 
         // HTTP client setup
         httplib::Client client("ws.audioscrobbler.com");      
@@ -91,11 +69,9 @@ void fetchSongsByMood(const std::string& mood) {
                 for (const auto& track : jsonResponse["tracks"]["track"]) {
                     std::string songName = track["name"];
                     std::string artistName = track["artist"]["name"];
-                    //std::string albumCover = track["image"][2]["#text"];  // Get medium-sized image
 
                     // Store song details
                     songList.emplace_back(songName, artistName);
-                    //albumCovers[songName] = albumCover; // Store album image URL
                 }
             }
             catch (const std::exception& e) {
