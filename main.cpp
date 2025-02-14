@@ -33,6 +33,8 @@ std::string FAVORITES_FILE = "favorites.txt";  // File to store favorite songs
 std::atomic<int> selectedMood = -1;  // atomic to prevent race conditions
 std::vector<std::pair<std::string, std::string>> songList;  // Stores (Song Name, Artist)
 std::vector<std::pair<std::string, std::string>> favoriteSongs; // Stores favorites
+std::thread fetchThread;
+std::atomic<bool> isFetching(false); // Atomic flag to ensure only one fetch operation at a time
 
 // Constants for API
 const std::string API_KEY = "eb06d13a5235407d221efb58f6de9361";  
@@ -53,9 +55,18 @@ extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam
 
 // Function to Fetch Songs from Last.fm API in a separate thread
 void fetchSongsByMood(const std::string& mood) {
-    std::thread fetchThread([mood]() {
-        std::lock_guard<std::mutex> lock(dataMutex);  // Prevents multiple threads from modifying data at the same time
-        songList.clear();
+    if (isFetching.load()) return;  // Prevent multiple fetches at the same time
+
+    isFetching.store(true);
+
+    // If an old thread is still running, join it before starting a new one
+    if (fetchThread.joinable()) {
+        fetchThread.join();
+    }
+    
+    // Start the new thread
+    fetchThread = std::thread([mood]() {
+        std::vector<std::pair<std::string, std::string>> tempSongList; // Temporary storage
 
         // HTTP client setup
         httplib::Client client("ws.audioscrobbler.com");      
@@ -69,19 +80,36 @@ void fetchSongsByMood(const std::string& mood) {
                 for (const auto& track : jsonResponse["tracks"]["track"]) {
                     std::string songName = track["name"];
                     std::string artistName = track["artist"]["name"];
-
                     // Store song details
-                    songList.emplace_back(songName, artistName);
+                    tempSongList.emplace_back(songName, artistName);
                 }
             }
             catch (const std::exception& e) {
                 std::cerr << "JSON Parsing Error: " << e.what() << std::endl;
             }
         }
+        else {
+            std::cerr << "Failed to fetch data: " << (response ? response->status : -1) << std::endl;
+        }
+
+        // Update shared data safely
+        {
+            std::lock_guard<std::mutex> lock(dataMutex);
+            songList = std::move(tempSongList);
+        }
+
+        // Reset the atomic flag
+        isFetching.store(false);
     });
-    fetchThread.detach(); // Detach the thread to run in the background
+    
 }
 
+// Ensures any active fetch completes before exiting
+void cleanupThreads() {
+    if (fetchThread.joinable()) {
+        fetchThread.join();  
+    }
+}
 
 // Save Favorite Songs to File
 void saveFavorites() {
@@ -420,8 +448,11 @@ int main() {
             exit(-1);
         }
         std::cout << "Frame presented successfully!" << std::endl;
+
     }
 
+    // Ensure all threads finish before exiting
+    cleanupThreads();
 
     return 0;
 }
